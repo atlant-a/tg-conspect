@@ -14,9 +14,6 @@ from telegram.ext import (
 import nest_asyncio # type: ignore
 
 # Токен бота і ID вашого каналу
-TOKEN = "7799406026:AAEMNhLQllapHWd7nHk7RSl4SfR9wQ9C5Ug"
-CHANNEL_ID = -1002419705763
-WEB_APP_URL = "https://www.deep-d.pp.ua/"  # URL вашого вебзастосунку
 
 # Зберігання message_id для оновлення або видалення повідомлень
 user_messages = {}
