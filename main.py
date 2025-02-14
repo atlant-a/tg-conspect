@@ -63,6 +63,23 @@ async def handle_subscription_check(update: Update, context: ContextTypes.DEFAUL
             ),
         )
 
+async def check_and_update_messages():
+    """Періодично перевіряє статус підписки і оновлює повідомлення."""
+    while True:
+        for user_id, message_id in user_messages.items():
+            if not await is_subscribed(user_id):
+                try:
+                    # Видалення кнопок у старих повідомленнях
+                    await application.bot.edit_message_text(
+                        chat_id=user_id,
+                        message_id=message_id,
+                        text="Доступ заблоковано! Будь ласка, підпишіться на канал, щоб отримати доступ.",
+                        reply_markup=None,
+                    )
+                except Exception:
+                    pass
+        await asyncio.sleep(10)  # Регулярно перевіряємо статус (в секундах)
+
 async def is_subscribed(user_id: int) -> bool:
     """Перевіряє, чи є користувач підписаним на канал."""
     try:
