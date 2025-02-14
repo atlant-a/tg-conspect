@@ -1,3 +1,4 @@
+import os
 import asyncio
 from telegram import (
     Update,
@@ -11,9 +12,16 @@ from telegram.ext import (
     CallbackQueryHandler,
     ContextTypes,
 )
-import nest_asyncio # type: ignore
+import nest_asyncio  # type: ignore
 
-# Токен бота і ID вашого каналу
+# Отримуємо змінні оточення
+TOKEN = os.getenv("TOKEN")
+CHANNEL_ID = os.getenv("CHANNEL_ID")
+WEB_APP_URL = os.getenv("WEB_APP_URL")
+
+# Перевіряємо, чи змінні завантажились
+if not TOKEN or not CHANNEL_ID or not WEB_APP_URL:
+    raise ValueError("Не встановлені змінні оточення!")
 
 # Зберігання message_id для оновлення або видалення повідомлень
 user_messages = {}
@@ -55,23 +63,6 @@ async def handle_subscription_check(update: Update, context: ContextTypes.DEFAUL
             ),
         )
 
-async def check_and_update_messages():
-    """Періодично перевіряє статус підписки і оновлює повідомлення."""
-    while True:
-        for user_id, message_id in user_messages.items():
-            if not await is_subscribed(user_id):
-                try:
-                    # Видалення кнопок у старих повідомленнях
-                    await application.bot.edit_message_text(
-                        chat_id=user_id,
-                        message_id=message_id,
-                        text="Доступ заблоковано! Будь ласка, підпишіться на канал, щоб отримати доступ.",
-                        reply_markup=None,
-                    )
-                except Exception:
-                    pass
-        await asyncio.sleep(10)  # Регулярно перевіряємо статус (в секундах)
-
 async def is_subscribed(user_id: int) -> bool:
     """Перевіряє, чи є користувач підписаним на канал."""
     try:
@@ -88,13 +79,9 @@ async def main():
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CallbackQueryHandler(handle_subscription_check, pattern="check_subscription"))
 
-    # Запускаємо окрему задачу для перевірки підписок
-    asyncio.create_task(check_and_update_messages())
-
     print("Бот запущений.")
     await application.run_polling()
 
 if __name__ == "__main__":
-    # Дозволяємо повторне використання існуючого event loop
     nest_asyncio.apply()
     asyncio.run(main())
