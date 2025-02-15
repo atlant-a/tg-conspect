@@ -1,4 +1,3 @@
-import os
 import asyncio
 from telegram import (
     Update,
@@ -13,15 +12,13 @@ from telegram.ext import (
     ContextTypes,
 )
 import nest_asyncio  # type: ignore
+import os
 
-# Отримуємо змінні оточення
-TOKEN = os.getenv("TOKEN")
-CHANNEL_ID = os.getenv("CHANNEL_ID")
-WEB_APP_URL = os.getenv("WEB_APP_URL")
-
-# Перевіряємо, чи змінні завантажились
-if not TOKEN or not CHANNEL_ID or not WEB_APP_URL:
-    raise ValueError("Не встановлені змінні оточення!")
+TOKEN = os.getenv("TOKEN")  # Завантажуємо токен із змінних середовища
+CHANNEL_ID = os.getenv("CHANNEL_ID")  # ID каналу
+WEB_APP_URL = os.getenv("WEB_APP_URL")  # URL вебзастосунку
+WEBHOOK_URL = os.getenv("WEBHOOK_URL")  # URL для вебхука
+PORT = int(os.getenv("PORT", 8000))  # Порт сервера
 
 # Зберігання message_id для оновлення або видалення повідомлень
 user_messages = {}
@@ -29,15 +26,12 @@ user_messages = {}
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Відправка стартового повідомлення з інлайн-кнопкою."""
     user = update.effective_user
-
-    # Надсилаємо повідомлення з кнопкою перевірки підписки
     sent_message = await update.message.reply_text(
         "Натисніть кнопку нижче, щоб отримати доступ до вебзастосунку:",
         reply_markup=InlineKeyboardMarkup(
             [[InlineKeyboardButton("Перевірити статус", callback_data="check_subscription")]]
         ),
     )
-    # Зберігаємо message_id для подальшого оновлення
     user_messages[user.id] = sent_message.message_id
 
 async def handle_subscription_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -45,9 +39,7 @@ async def handle_subscription_check(update: Update, context: ContextTypes.DEFAUL
     query = update.callback_query
     user = query.from_user
 
-    # Перевіряємо статус підписки
     if await is_subscribed(user.id):
-        # Якщо підписка активна, оновлюємо кнопку для запуску вебзастосунку
         await query.edit_message_text(
             "Ви підписані! Натисніть кнопку нижче, щоб запустити вебзастосунок:",
             reply_markup=InlineKeyboardMarkup(
@@ -55,7 +47,6 @@ async def handle_subscription_check(update: Update, context: ContextTypes.DEFAUL
             ),
         )
     else:
-        # Якщо користувач не підписаний, оновлюємо повідомлення з інструкцією
         await query.edit_message_text(
             "Ви не підписані на канал. Будь ласка, підпишіться за посиланням нижче:",
             reply_markup=InlineKeyboardMarkup(
@@ -86,18 +77,27 @@ async def is_subscribed(user_id: int) -> bool:
         member = await application.bot.get_chat_member(chat_id=CHANNEL_ID, user_id=user_id)
         return member.status in ("member", "administrator", "creator")
     except Exception:
-        return False  # Якщо користувач не знайдений або виникла помилка
+        return False
 
 async def main():
     global application
     application = Application.builder().token(TOKEN).build()
 
-    # Додавання обробників
+    # Додавання обробників команд і callback-кнопок
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CallbackQueryHandler(handle_subscription_check, pattern="check_subscription"))
 
-    print("Бот запущений.")
-    await application.run_polling()
+    # Налаштовуємо вебхук
+    await application.bot.set_webhook(url=WEBHOOK_URL)
+    
+    print(f"Бот запущений. Вебхук встановлено: {WEBHOOK_URL}")
+
+    # Запускаємо вебсервер
+    application.run_webhook(
+        listen="0.0.0.0",
+        port=PORT,
+        webhook_url=WEBHOOK_URL
+    )
 
 if __name__ == "__main__":
     nest_asyncio.apply()
